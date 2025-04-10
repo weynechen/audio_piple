@@ -3,3 +3,4 @@ managed_components/
 sdkconfig
 .venv/
 __pycache__/
+.vscode/

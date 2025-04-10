@@ -1,137 +1,118 @@
-# Websocket Sample application
+# ESP32-S3 音频文件服务器 WebSocket 客户端
 
-This example will shows how to set up and communicate over a websocket.
+这个应用程序实现了ESP32-S3设备与音频文件服务器之间的WebSocket通信。
 
-## How to Use Example
+## 功能特性
 
-### Hardware Required
+* 设备自动连接和断线重连机制
+* 心跳保活
+* 文件传输 (上传/下载)
+* 文件列表同步
+* 基于WebSocket的实时状态更新
 
-This example can be executed on any ESP32 board, the only required interface is WiFi and connection to internet or a local server.
 
-### Configure the project
+## 硬件要求
 
-* Open the project configuration menu (`idf.py menuconfig`)
-* Configure Wi-Fi or Ethernet under "Example Connection Configuration" menu.
-* Configure the websocket endpoint URI under "Example Configuration", if "WEBSOCKET_URI_FROM_STDIN" is selected then the example application will connect to the URI it reads from stdin (used for testing)
-* To test a WebSocket client example over TLS, please enable one of the following configurations: `CONFIG_WS_OVER_TLS_MUTUAL_AUTH` or `CONFIG_WS_OVER_TLS_SERVER_AUTH`. See the sections below for more details.
+本应用程序需要一块ESP32-S3开发板，唯一的必要接口是WiFi以连接到互联网或本地服务器。
 
-### Server Certificate Verification
+## 配置项目
 
-* Mutual Authentication: When `CONFIG_WS_OVER_TLS_MUTUAL_AUTH=y` is enabled, it's essential to provide valid certificates for both the server and client.
-  This ensures a secure two-way verification process.
-* Server-Only Authentication: To perform verification of the server's certificate only (without requiring a client certificate), set `CONFIG_WS_OVER_TLS_SERVER_AUTH=y`.
-  This method skips client certificate verification.
-* Example below demonstrates how to generate a new self signed certificates for the server and client using the OpenSSL command line tool
+* 打开项目配置菜单 (`idf.py menuconfig`)
+* 在"Example Connection Configuration"菜单下配置WiFi连接信息
+* 在"Example Configuration"菜单下配置WebSocket端点URI，如果选择"WEBSOCKET_URI_FROM_STDIN"，则应用程序将从标准输入读取URI (用于测试)
+* 禁用TLS
 
-Please note: This example represents an extremely simplified approach to generating self-signed certificates/keys with a single common CA, devoid of CN checks, lacking password protection, and featuring hardcoded key sizes and types. It is intended solely for testing purposes.
-In the outlined steps, we are omitting the configuration of the CN (Common Name) field due to the context of a testing environment. However, it's important to recognize that the CN field is a critical element of SSL/TLS certificates, significantly influencing the security and efficacy of HTTPS communications. This field facilitates the verification of a website's identity, enhancing trust and security in web interactions. In practical deployments beyond testing scenarios, ensuring the CN field is accurately set is paramount for maintaining the integrity and reliability of secure communications
+### WebSocket服务器URL格式
 
-### Generating a self signed Certificates with OpenSSL
-* The example below outlines the process for creating new certificates for both the server and client using OpenSSL, a widely-used command line tool for implementing TLS protocol:
+默认的WebSocket服务器URL格式为：`ws://your-server-ip:8001/ws/{client_id}`，其中`{client_id}`是基于设备MAC地址的唯一标识符。
 
-```
-Generate the CA's Private Key;
-openssl genrsa -out ca_key.pem 2048
+### 服务器证书验证
+禁用证书
 
-Create the CA's Certificate
-openssl req -new -x509 -days 3650 -key ca_key.pem -out ca_cert.pem
+## 构建和烧录
 
-Generate the Server's Private Key
-openssl genrsa -out server_key.pem 2048
-
-Generate a Certificate Signing Request (CSR) for the Server
-openssl req -new -key server_key.pem -out server_csr.pem
-
-Sign the Server's CSR with the CA's Certificate
-openssl x509 -req -days 3650 -in server_csr.pem -CA ca_cert.pem -CAkey ca_key.pem -CAcreateserial -out server_cert.pem
-
-Generate the Client's Private Key
-openssl genrsa -out client_key.pem 2048
-
-Generate a Certificate Signing Request (CSR) for the Client
-openssl req -new -key client_key.pem -out client_csr.pem
-
-Sign the Client's CSR with the CA's Certificate
-openssl x509 -req -days 3650 -in client_csr.pem -CA ca_cert.pem -CAkey ca_key.pem -CAcreateserial -out client_cert.pem
-
-```
-
-Expiry time and metadata fields can be adjusted in the invocation.
-
-Please see the openssl man pages (man openssl) for more details.
-
-It is **strongly recommended** to not reuse the example certificate in your application;
-it is included only for demonstration.
-
-### Build and Flash
-
-Build the project and flash it to the board, then run monitor tool to view serial output:
+构建项目并将其烧录到开发板，然后运行监视工具查看串口输出：
 
 ```
 idf.py -p PORT flash monitor
 ```
 
-(To exit the serial monitor, type ``Ctrl-]``.)
+(使用`Ctrl-]`退出串口监视器)
 
-See the Getting Started Guide for full steps to configure and use ESP-IDF to build projects.
+有关配置和使用ESP-IDF构建项目的完整步骤，请参阅入门指南。
 
-## Example Output
+## 文件存储
+
+该应用使用SPIFFS文件系统来存储下载的文件。文件系统会在首次启动时自动格式化。
+
+## 与服务器的通信协议
+
+设备与服务器之间使用JSON格式的消息进行通信：
+
+1. **设备上线消息**：
+   ```json
+   {
+     "type": "online",
+     "device_id": "esp32_xxxxxxxxxxxx",
+     "version": "1.0.0"
+   }
+   ```
+
+2. **心跳消息**：
+   ```json
+   {
+     "type": "heartbeat",
+     "device_id": "esp32_xxxxxxxxxxxx",
+     "timestamp": 1234567890
+   }
+   ```
+
+3. **文件列表消息**：
+   ```json
+   {
+     "type": "file_list",
+     "device_id": "esp32_xxxxxxxxxxxx",
+     "files": [
+       {"name": "file1.txt", "size": 1024, "md5": "..."},
+       {"name": "file2.txt", "size": 2048, "md5": "..."}
+     ]
+   }
+   ```
+
+4. **文件下载请求**：
+   ```json
+   {
+     "type": "download",
+     "url": "http://server/download/file.txt",
+     "filename": "file.txt",
+     "md5": "...",
+     "size": 1024
+   }
+   ```
+
+## 示例输出
 
 ```
-I (482) system_api: Base MAC address is not set, read default base MAC address from BLK0 of EFUSE
-I (2492) example_connect: Ethernet Link Up
-I (4472) tcpip_adapter: eth ip: 192.168.2.137, mask: 255.255.255.0, gw: 192.168.2.2
-I (4472) example_connect: Connected to Ethernet
-I (4472) example_connect: IPv4 address: 192.168.2.137
-I (4472) example_connect: IPv6 address: fe80:0000:0000:0000:bedd:c2ff:fed4:a92b
-I (4482) WEBSOCKET: Connecting to ws://echo.websocket.events...
-I (5012) WEBSOCKET: WEBSOCKET_EVENT_CONNECTED
-I (5492) WEBSOCKET: Sending hello 0000
-I (6052) WEBSOCKET: WEBSOCKET_EVENT_DATA
-W (6052) WEBSOCKET: Received=hello 0000
-
-I (6492) WEBSOCKET: Sending hello 0001
-I (7052) WEBSOCKET: WEBSOCKET_EVENT_DATA
-W (7052) WEBSOCKET: Received=hello 0001
-
-I (7492) WEBSOCKET: Sending hello 0002
-I (8082) WEBSOCKET: WEBSOCKET_EVENT_DATA
-W (8082) WEBSOCKET: Received=hello 0002
-
-I (8492) WEBSOCKET: Sending hello 0003
-I (9152) WEBSOCKET: WEBSOCKET_EVENT_DATA
-W (9162) WEBSOCKET: Received=hello 0003
-
+I (482) esp_websocket_client: [APP] 启动...
+I (2492) example_connect: WiFi Link Up
+I (4472) tcpip_adapter: sta ip: 192.168.1.100, mask: 255.255.255.0, gw: 192.168.1.1
+I (4472) example_connect: 已连接到WiFi
+I (4472) example_connect: IPv4地址: 192.168.1.100
+I (4482) esp_websocket_client: WebSocket URL: ws://192.168.1.10:8001/ws/esp32_aabbccddeeff
+I (5012) esp_websocket_client: WebSocket连接成功
+I (5492) esp_websocket_client: 发送上线消息
+I (6052) esp_websocket_client: 收到数据: {"type":"heartbeat_ack"}
+I (7492) esp_websocket_client: 发送心跳
+I (8082) esp_websocket_client: 收到数据: {"type":"heartbeat_ack"}
 ```
 
+## 文件分发服务器
 
-## Python Flask echo server
+本WebSocket客户端需要配合[文件分发服务器](../file_distribution_server/README.md)使用。服务器提供了以下功能：
 
-By default, the `ws://echo.websocket.events` endpoint is used. You can setup a Python websocket echo server locally and try the `ws://<your-ip>:5000` endpoint. To do this, install Flask-sock Python package
+- WebSocket长连接管理
+- 文件上传和下载
+- 设备在线状态监控
+- 文件处理和分发
 
-```
-pip install flask-sock
-```
-
-and start a Flask websocket echo server locally by executing the following Python code:
-
-```python
-from flask import Flask
-from flask_sock import Sock
-
-app = Flask(__name__)
-sock = Sock(app)
-
-
-@sock.route('/')
-def echo(ws):
-    while True:
-        data = ws.receive()
-        ws.send(data)
-
-
-if __name__ == '__main__':
-    # To run your Flask + WebSocket server in production you can use Gunicorn:
-    # gunicorn -b 0.0.0.0:5000 --workers 4 --threads 100 module:app
-    app.run(host="0.0.0.0", debug=True)
-```
+请确保您已经正确设置并运行了文件分发服务器。
