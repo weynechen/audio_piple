@@ -1,0 +1,10 @@
+{
+  "name": "文件分发服务器",
+  "short_name": "文件分发",
+  "description": "文件处理和分发服务器",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4a90e2",
+  "icons": []
+} 

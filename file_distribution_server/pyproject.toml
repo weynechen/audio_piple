@@ -1,0 +1,24 @@
+[project]
+name = "file_distribution_server"
+version = "0.1.0"
+authors = [
+    {name = "您的名字", email = "your.email@example.com"},
+]
+description = "一个基于FastAPI和Gradio构建的文件处理和分发服务器"
+readme = "README.md"
+requires-python = ">=3.12"
+license = {text = "MIT"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "gradio>=5.24.0",
+    "python-multipart",
+    "websockets",
+    "aiohttp"
+]
+
